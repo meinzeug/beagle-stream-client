@@ -3,11 +3,11 @@
 	<id>com.moonlight_stream.Moonlight</id>
 	<metadata_license>CC0-1.0</metadata_license>
 	<project_license>GPL-3.0+</project_license>
-	<name>Moonlight</name>
-	<summary>Stream games and other applications from another PC running Sunshine or GeForce Experience</summary>
+	<name>BeagleStream</name>
+	<summary>BeagleStream Client - powered by Moonlight (GPL v3)</summary>
 
 	<description>
-		<p>Moonlight can stream games and other applications from another PC with Sunshine or GeForce Experience software installed.</p>
+		<p>BeagleStream can stream games and desktop sessions from a BeagleStream Server or another PC with Sunshine or GeForce Experience software installed.</p>
 		<p>Features include:</p>
 		<ul>
 			<li>Hardware accelerated video decoding with VAAPI, VDPAU, and Vulkan Video support</li>
@@ -30,7 +30,7 @@
 	<update_contact>cameron@moonlight-stream.org</update_contact>
 	<launchable type="desktop-id">com.moonlight_stream.Moonlight.desktop</launchable>
 	<provides>
-		<binary>moonlight</binary>
+		<binary>beagle-stream</binary>
 	</provides>
 	<content_rating type="oars-1.1" />	
 

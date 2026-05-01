@@ -2,6 +2,9 @@
 #include "settings/streamingpreferences.h"
 #include "streaming/streamutils.h"
 #include "backend/richpresencemanager.h"
+#include "backend/nvpairingmanager.h"
+#include "beagle/BeagleConfig.h"
+#include "beagle/BeagleVPN.h"
 
 #include <Limelight.h>
 #include "SDL_compat.h"
@@ -33,6 +36,7 @@
 
 #include <QtEndian>
 #include <QCoreApplication>
+#include <QEventLoop>
 #include <QThreadPool>
 #include <QSvgRenderer>
 #include <QPainter>
@@ -558,6 +562,7 @@ Session::Session(NvComputer* computer, NvApp& app, StreamingPreferences *prefere
       m_AudioMuted(false),
       m_QtWindow(nullptr),
       m_UnexpectedTermination(true), // Failure prior to streaming is unexpected
+      m_BeagleVpnActivated(false),
       m_InputHandler(nullptr),
       m_MouseEmulationRefCount(0),
       m_FlushingWindowEventsRef(0),
@@ -1268,6 +1273,8 @@ private:
         // Finish cleanup of the connection state
         LiStopConnection();
 
+        m_Session->cleanupBeagleAllocation();
+
         // Perform a best-effort app quit
         if (shouldQuit) {
             NvHTTP http(m_Session->m_Computer);
@@ -1556,6 +1563,11 @@ public:
 // Called in a non-main thread
 bool Session::startConnectionAsync()
 {
+    if (!prepareBeagleAllocation()) {
+        cleanupBeagleAllocation();
+        return false;
+    }
+
     // The UI should have ensured the old game was already quit
     // if we decide to stream a different game.
     Q_ASSERT(m_Computer->currentGameId == 0 ||
@@ -1693,6 +1705,77 @@ bool Session::startConnectionAsync()
     return true;
 }
 
+bool Session::prepareBeagleAllocation()
+{
+    const Beagle::EnrollmentConfig cfg = Beagle::loadEnrollmentConfig();
+    if (!cfg.valid || cfg.pool_id.isEmpty()) {
+        return true;
+    }
+
+    emit stageStarting(tr("Allocating BeagleStream session"));
+
+    Beagle::BeagleBroker broker;
+    QEventLoop loop;
+    Beagle::AllocateResult result;
+    QObject::connect(&broker, &Beagle::BeagleBroker::allocated, &loop, [&](Beagle::AllocateResult allocated) {
+        result = allocated;
+        loop.quit();
+    });
+    broker.allocate(cfg.pool_id);
+    loop.exec(QEventLoop::ExcludeUserInputEvents);
+
+    if (!result.success) {
+        emit displayLaunchError(tr("Beagle broker allocation failed: %1").arg(result.error));
+        return false;
+    }
+
+    if (result.wg_peer.valid) {
+        m_BeagleWgPeer = result.wg_peer;
+        m_BeagleVpnActivated = Beagle::BeagleVPN::activatePeer(m_BeagleWgPeer);
+    }
+
+    m_Computer->activeAddress = NvAddress(result.host_ip, result.port);
+    m_Computer->activeHttpsPort = 0;
+
+    try {
+        NvHTTP http(m_Computer);
+        const QString serverInfo = http.getServerInfo(NvHTTP::NVLL_ERROR);
+        NvComputer updated(http, serverInfo);
+        m_Computer->update(updated);
+
+        if (m_Computer->pairState != NvComputer::PS_PAIRED) {
+            NvPairingManager pairingManager(m_Computer);
+            NvPairingManager::PairState pairState = pairingManager.pair(m_Computer->appVersion, result.token, m_Computer->serverCert);
+            if (pairState != NvPairingManager::PairState::PAIRED) {
+                emit displayLaunchError(tr("Beagle token pairing failed"));
+                return false;
+            }
+
+            NvHTTP pairedHttp(m_Computer);
+            const QString pairedServerInfo = pairedHttp.getServerInfo(NvHTTP::NVLL_ERROR);
+            NvComputer paired(pairedHttp, pairedServerInfo);
+            m_Computer->update(paired);
+        }
+    } catch (const GfeHttpResponseException& e) {
+        emit displayLaunchError(tr("Beagle stream host returned error: %1").arg(e.toQString()));
+        return false;
+    } catch (const QtNetworkReplyException& e) {
+        emit displayLaunchError(e.toQString());
+        return false;
+    }
+
+    return true;
+}
+
+void Session::cleanupBeagleAllocation()
+{
+    if (m_BeagleVpnActivated && m_BeagleWgPeer.valid) {
+        Beagle::BeagleVPN::deactivatePeer(m_BeagleWgPeer.public_key);
+    }
+    m_BeagleVpnActivated = false;
+    m_BeagleWgPeer = Beagle::WgPeer();
+}
+
 void Session::flushWindowEvents()
 {
     // Pump events to ensure all pending OS events are posted
@@ -1820,7 +1903,7 @@ void Session::exec()
 #ifdef Q_OS_DARWIN
     std::string windowName = QString(m_Computer->name).toStdString();
 #else
-    std::string windowName = QString(m_Computer->name + " - Moonlight").toStdString();
+    std::string windowName = QString(m_Computer->name + " - BeagleStream").toStdString();
 #endif
 
     m_Window = SDL_CreateWindow(windowName.c_str(),

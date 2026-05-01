@@ -10,6 +10,7 @@
 #include "video/decoder.h"
 #include "audio/renderers/renderer.h"
 #include "video/overlaymanager.h"
+#include "beagle/BeagleBroker.h"
 
 class SupportedVideoFormatList : public QList<int>
 {
@@ -148,6 +149,10 @@ private:
 
     bool startConnectionAsync();
 
+    bool prepareBeagleAllocation();
+
+    void cleanupBeagleAllocation();
+
     bool validateLaunch(SDL_Window* testWindow);
 
     void emitLaunchWarning(QString text);
@@ -258,6 +263,8 @@ private:
     Uint32 m_FullScreenFlag;
     QQuickWindow* m_QtWindow;
     bool m_UnexpectedTermination;
+    Beagle::WgPeer m_BeagleWgPeer;
+    bool m_BeagleVpnActivated;
     SdlInputHandler* m_InputHandler;
     int m_MouseEmulationRefCount;
     int m_FlushingWindowEventsRef;

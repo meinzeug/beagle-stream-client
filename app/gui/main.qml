@@ -19,6 +19,7 @@ ApplicationWindow {
     property bool clearOnBack: false
 
     id: window
+    title: qsTr("BeagleStream")
     width: 1280
     height: 600
 
@@ -288,7 +289,8 @@ ApplicationWindow {
             Label {
                 id: versionLabel
                 visible: stackView.currentItem instanceof SettingsView
-                text: qsTr("Version %1").arg(SystemProperties.versionString)
+                text: qsTr("BeagleStream Client - powered by Moonlight (GPL v3)") + "\n" +
+                      qsTr("Version %1").arg(SystemProperties.versionString)
                 font.pointSize: 12
                 horizontalAlignment: Qt.AlignRight
                 verticalAlignment: Qt.AlignVCenter

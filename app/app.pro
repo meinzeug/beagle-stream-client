@@ -2,10 +2,10 @@ QT += core quick network quickcontrols2 svg
 CONFIG += c++17
 
 unix:!macx {
-    TARGET = moonlight
+    TARGET = beagle-stream
 } else {
     # On macOS, this is the name displayed in the global menu bar
-    TARGET = Moonlight
+    TARGET = BeagleStream
 }
 
 include(../globaldefs.pri)
@@ -167,6 +167,9 @@ macx {
 
 SOURCES += \
     backend/nvaddress.cpp \
+    beagle/BeagleBroker.cpp \
+    beagle/BeagleConfig.cpp \
+    beagle/BeagleVPN.cpp \
     backend/nvapp.cpp \
     cli/pair.cpp \
     main.cpp \
@@ -209,6 +212,9 @@ SOURCES += \
 HEADERS += \
     SDL_compat.h \
     backend/nvaddress.h \
+    beagle/BeagleBroker.h \
+    beagle/BeagleConfig.h \
+    beagle/BeagleVPN.h \
     backend/nvapp.h \
     cli/pair.h \
     settings/compatfetcher.h \
@@ -532,8 +538,8 @@ unix:!macx: {
     desktop.files = deploy/linux/com.moonlight_stream.Moonlight.desktop
     desktop.path = $$PREFIX/$$DATADIR/applications/
 
-    icons.files = res/moonlight.svg
-    icons.path = $$PREFIX/$$DATADIR/icons/hicolor/scalable/apps/
+    icons.files = res/beagle-stream.png
+    icons.path = $$PREFIX/$$DATADIR/icons/hicolor/64x64/apps/
 
     appstream.files = deploy/linux/com.moonlight_stream.Moonlight.appdata.xml
     appstream.path = $$PREFIX/$$DATADIR/metainfo/
@@ -542,9 +548,9 @@ unix:!macx: {
 }
 win32 {
     RC_ICONS = moonlight.ico
-    QMAKE_TARGET_COMPANY = Moonlight Game Streaming Project
-    QMAKE_TARGET_DESCRIPTION = Moonlight Game Streaming Client
-    QMAKE_TARGET_PRODUCT = Moonlight
+    QMAKE_TARGET_COMPANY = Beagle OS
+    QMAKE_TARGET_DESCRIPTION = BeagleStream Client - powered by Moonlight
+    QMAKE_TARGET_PRODUCT = BeagleStream
 
     CONFIG -= embed_manifest_exe
     QMAKE_LFLAGS += /MANIFEST:embed /MANIFESTINPUT:$${PWD}/Moonlight.exe.manifest
