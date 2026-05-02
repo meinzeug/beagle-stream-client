@@ -6,16 +6,17 @@
 namespace Beagle {
 namespace {
 
-constexpr auto kEnrollmentPath = "/etc/beagle/enrollment.conf";
+constexpr auto kEnrollmentConfigPath = "/etc/beagle/enrollment.conf";
 
 QString stripQuotes(QString value)
 {
+    value = value.trimmed();
     if (value.size() >= 2 &&
-        ((value.front() == '"' && value.back() == '"') ||
-         (value.front() == '\'' && value.back() == '\''))) {
-        return value.mid(1, value.size() - 2);
+        ((value.startsWith('"') && value.endsWith('"')) ||
+         (value.startsWith('\'') && value.endsWith('\'')))) {
+        value = value.mid(1, value.size() - 2);
     }
-    return value;
+    return value.trimmed();
 }
 
 }
@@ -23,7 +24,7 @@ QString stripQuotes(QString value)
 EnrollmentConfig loadEnrollmentConfig()
 {
     EnrollmentConfig cfg;
-    QFile file(kEnrollmentPath);
+    QFile file(QString::fromUtf8(kEnrollmentConfigPath));
     if (!file.open(QIODevice::ReadOnly | QIODevice::Text)) {
         return cfg;
     }
@@ -35,13 +36,14 @@ EnrollmentConfig loadEnrollmentConfig()
             continue;
         }
 
-        const int pos = line.indexOf('=');
-        if (pos < 0) {
+        int separator = line.indexOf('=');
+        if (separator <= 0) {
             continue;
         }
 
-        const QString key = line.left(pos).trimmed();
-        const QString value = stripQuotes(line.mid(pos + 1).trimmed());
+        const QString key = line.left(separator).trimmed();
+        const QString value = stripQuotes(line.mid(separator + 1));
+
         if (key == "control_plane") {
             cfg.control_plane = value;
         }
@@ -58,6 +60,7 @@ EnrollmentConfig loadEnrollmentConfig()
 
     cfg.valid = !cfg.control_plane.isEmpty() &&
                 !cfg.device_id.isEmpty() &&
+                !cfg.pool_id.isEmpty() &&
                 !cfg.enrollment_token.isEmpty();
     return cfg;
 }

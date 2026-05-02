@@ -2,10 +2,8 @@
 
 #include "BeagleConfig.h"
 
+#include <QNetworkAccessManager>
 #include <QObject>
-#include <QString>
-
-class QNetworkAccessManager;
 
 namespace Beagle {
 
@@ -25,20 +23,21 @@ struct AllocateResult {
     WgPeer wg_peer;
 };
 
-class BeagleBroker : public QObject {
+class BeagleBroker : public QObject
+{
     Q_OBJECT
 
 public:
-    explicit BeagleBroker(QObject *parent = nullptr);
+    explicit BeagleBroker(QObject* parent = nullptr);
 
-    void allocate(const QString &pool_id);
+    void allocate(const QString& poolId = QString());
 
 signals:
     void allocated(Beagle::AllocateResult result);
 
 private:
-    EnrollmentConfig m_Cfg;
-    QNetworkAccessManager *m_Nam;
+    EnrollmentConfig m_cfg;
+    QNetworkAccessManager m_nam;
 };
 
 }

@@ -2,85 +2,109 @@
 
 #include <QJsonDocument>
 #include <QJsonObject>
-#include <QNetworkAccessManager>
 #include <QNetworkReply>
 #include <QNetworkRequest>
 #include <QSslError>
 #include <QUrl>
 
 namespace Beagle {
+namespace {
 
-BeagleBroker::BeagleBroker(QObject *parent)
-    : QObject(parent),
-      m_Cfg(loadEnrollmentConfig()),
-      m_Nam(new QNetworkAccessManager(this))
-{
-    connect(m_Nam, &QNetworkAccessManager::sslErrors, this, [](QNetworkReply *reply, const QList<QSslError> &errors) {
-        reply->ignoreSslErrors(errors);
-    });
-}
-
-void BeagleBroker::allocate(const QString &pool_id)
+AllocateResult makeErrorResult(const QString& error)
 {
     AllocateResult result;
-    if (!m_Cfg.valid) {
-        result.error = tr("Beagle enrollment config is missing or incomplete");
-        emit allocated(result);
+    result.error = error;
+    return result;
+}
+
+QString joinUrlPath(const QString& base, const QString& path)
+{
+    QString normalized = base;
+    while (normalized.endsWith('/')) {
+        normalized.chop(1);
+    }
+    return normalized + path;
+}
+
+}
+
+BeagleBroker::BeagleBroker(QObject* parent)
+    : QObject(parent),
+      m_cfg(loadEnrollmentConfig())
+{
+}
+
+void BeagleBroker::allocate(const QString& poolId)
+{
+    if (!m_cfg.valid) {
+        emit allocated(makeErrorResult(tr("Beagle enrollment is not configured.")));
         return;
     }
 
-    QUrl url(m_Cfg.control_plane);
-    url.setPath("/api/v1/streams/allocate");
+    QUrl url(joinUrlPath(m_cfg.control_plane, "/api/v1/streams/allocate"));
+    if (!url.isValid()) {
+        emit allocated(makeErrorResult(tr("Invalid Beagle control plane URL.")));
+        return;
+    }
 
     QNetworkRequest request(url);
     request.setHeader(QNetworkRequest::ContentTypeHeader, "application/json");
-    request.setRawHeader("X-Beagle-Token", m_Cfg.enrollment_token.toUtf8());
+    request.setRawHeader("X-Beagle-Token", m_cfg.enrollment_token.toUtf8());
 
-    QJsonObject body;
-    body["pool_id"] = pool_id.isEmpty() ? m_Cfg.pool_id : pool_id;
-    body["device_id"] = m_Cfg.device_id;
-    body["user_id"] = "";
+    QJsonObject payload{
+        {"pool_id", poolId.isEmpty() ? m_cfg.pool_id : poolId},
+        {"device_id", m_cfg.device_id},
+        {"user_id", QString()}
+    };
 
-    QNetworkReply *reply = m_Nam->post(request, QJsonDocument(body).toJson(QJsonDocument::Compact));
+    QNetworkReply* reply = m_nam.post(request, QJsonDocument(payload).toJson(QJsonDocument::Compact));
+    connect(reply, &QNetworkReply::sslErrors, this, [reply](const QList<QSslError>& errors) {
+        Q_UNUSED(errors);
+        reply->ignoreSslErrors();
+    });
+
     connect(reply, &QNetworkReply::finished, this, [this, reply]() {
-        AllocateResult result;
-        const QByteArray payload = reply->readAll();
+        reply->deleteLater();
 
         if (reply->error() != QNetworkReply::NoError) {
-            result.error = reply->errorString();
-            reply->deleteLater();
-            emit allocated(result);
+            emit allocated(makeErrorResult(reply->errorString()));
             return;
         }
 
         QJsonParseError parseError;
-        const QJsonDocument doc = QJsonDocument::fromJson(payload, &parseError);
-        if (parseError.error != QJsonParseError::NoError || !doc.isObject()) {
-            result.error = tr("Invalid Beagle broker response");
-            reply->deleteLater();
-            emit allocated(result);
+        const QJsonDocument document = QJsonDocument::fromJson(reply->readAll(), &parseError);
+        if (parseError.error != QJsonParseError::NoError || !document.isObject()) {
+            emit allocated(makeErrorResult(tr("Invalid allocate response from Beagle control plane.")));
             return;
         }
 
-        const QJsonObject obj = doc.object();
-        result.host_ip = obj.value("host_ip").toString();
-        result.port = obj.value("port").toInt(result.port);
-        result.token = obj.value("token").toString();
+        const QJsonObject object = document.object();
+        AllocateResult result;
+        result.success = true;
+        result.host_ip = object.value("host_ip").toString();
+        result.port = object.value("port").toInt(47984);
+        result.token = object.value("token").toString();
 
-        const QJsonObject wg = obj.value("wg_peer_config").toObject();
-        result.wg_peer.public_key = wg.value("public_key").toString();
-        result.wg_peer.endpoint = wg.value("endpoint").toString();
-        result.wg_peer.allowed_ips = wg.value("allowed_ips").toString();
-        result.wg_peer.valid = !result.wg_peer.public_key.isEmpty() &&
-                               !result.wg_peer.endpoint.isEmpty() &&
-                               !result.wg_peer.allowed_ips.isEmpty();
-
-        result.success = !result.host_ip.isEmpty() && !result.token.isEmpty();
-        if (!result.success) {
-            result.error = tr("Beagle broker response is missing host or token");
+        const QJsonObject wg = object.value("wg_peer_config").toObject();
+        if (!wg.isEmpty()) {
+            result.wg_peer.public_key = wg.value("public_key").toString();
+            result.wg_peer.endpoint = wg.value("endpoint").toString();
+            result.wg_peer.allowed_ips = wg.value("allowed_ips").toString();
+            result.wg_peer.valid = !result.wg_peer.public_key.isEmpty() &&
+                                   !result.wg_peer.endpoint.isEmpty() &&
+                                   !result.wg_peer.allowed_ips.isEmpty();
         }
 
-        reply->deleteLater();
+        if (result.host_ip.isEmpty()) {
+            emit allocated(makeErrorResult(tr("Allocate response did not include a host address.")));
+            return;
+        }
+
+        if (result.token.isEmpty()) {
+            emit allocated(makeErrorResult(tr("Allocate response did not include a stream token.")));
+            return;
+        }
+
         emit allocated(result);
     });
 }

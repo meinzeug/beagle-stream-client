@@ -1,4 +1,5 @@
 #include "commandlineparser.h"
+#include "beagle/BeagleConfig.h"
 
 #include <QCommandLineParser>
 #include <QRegularExpression>
@@ -278,7 +279,10 @@ void PairCommandLineParser::parse(const QStringList &args)
     }
     m_Host = parser.positionalArguments().at(1);
     m_PredefinedPin = parser.value("pin");
-    if (!m_PredefinedPin.isEmpty() && m_PredefinedPin.length() != 4) {
+    const bool allowBeagleToken = Beagle::loadEnrollmentConfig().valid;
+    if (!m_PredefinedPin.isEmpty() &&
+        m_PredefinedPin.length() != 4 &&
+        !allowBeagleToken) {
         parser.showError("PIN must be 4 digits");
     }
 }

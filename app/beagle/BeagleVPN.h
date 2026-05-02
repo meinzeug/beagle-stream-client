@@ -6,10 +6,11 @@ namespace Beagle {
 
 struct WgPeer;
 
-class BeagleVPN {
+class BeagleVPN
+{
 public:
-    static bool activatePeer(const WgPeer &peer);
-    static void deactivatePeer(const QString &public_key);
+    static bool activatePeer(const WgPeer& peer);
+    static void deactivatePeer(const QString& publicKey);
     static bool isActive();
 };
 

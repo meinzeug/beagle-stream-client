@@ -2,54 +2,67 @@
 
 #include "BeagleBroker.h"
 
+#include <QDebug>
 #include <QDir>
 #include <QProcess>
-#include <QDebug>
 
 namespace Beagle {
+namespace {
 
-bool BeagleVPN::activatePeer(const WgPeer &peer)
+constexpr auto kWireGuardInterfacePath = "/sys/class/net/wg-beagle";
+constexpr auto kWireGuardTool = "wg";
+constexpr auto kWireGuardInterface = "wg-beagle";
+
+bool runWireGuardCommand(const QStringList& arguments)
+{
+    QProcess process;
+    process.start(QString::fromUtf8(kWireGuardTool), arguments);
+    if (!process.waitForStarted() || !process.waitForFinished(5000) || process.exitCode() != 0) {
+        qWarning() << "Beagle VPN command failed:" << arguments
+                   << process.readAllStandardError();
+        return false;
+    }
+    return true;
+}
+
+}
+
+bool BeagleVPN::activatePeer(const WgPeer& peer)
 {
     if (!peer.valid) {
         return true;
     }
 
-#ifdef Q_OS_LINUX
-    QProcess wg;
-    wg.start("wg", {"set", "wg-beagle", "peer", peer.public_key, "endpoint", peer.endpoint, "allowed-ips", peer.allowed_ips});
-    if (!wg.waitForFinished(5000) || wg.exitStatus() != QProcess::NormalExit || wg.exitCode() != 0) {
-        qWarning() << "Beagle WireGuard peer activation failed:" << wg.errorString() << wg.readAllStandardError();
-        return false;
-    }
-    return true;
-#else
-    qWarning() << "Beagle WireGuard peer activation is only supported on Linux";
-    return false;
-#endif
+    return runWireGuardCommand({
+        "set",
+        QString::fromUtf8(kWireGuardInterface),
+        "peer",
+        peer.public_key,
+        "endpoint",
+        peer.endpoint,
+        "allowed-ips",
+        peer.allowed_ips
+    });
 }
 
-void BeagleVPN::deactivatePeer(const QString &public_key)
+void BeagleVPN::deactivatePeer(const QString& publicKey)
 {
-    if (public_key.isEmpty()) {
+    if (publicKey.isEmpty()) {
         return;
     }
 
-#ifdef Q_OS_LINUX
-    QProcess wg;
-    wg.start("wg", {"set", "wg-beagle", "peer", public_key, "remove"});
-    if (!wg.waitForFinished(5000) || wg.exitStatus() != QProcess::NormalExit || wg.exitCode() != 0) {
-        qWarning() << "Beagle WireGuard peer removal failed:" << wg.errorString() << wg.readAllStandardError();
-    }
-#endif
+    runWireGuardCommand({
+        "set",
+        QString::fromUtf8(kWireGuardInterface),
+        "peer",
+        publicKey,
+        "remove"
+    });
 }
 
 bool BeagleVPN::isActive()
 {
-#ifdef Q_OS_LINUX
-    return QDir("/sys/class/net/wg-beagle").exists();
-#else
-    return false;
-#endif
+    return QDir(QString::fromUtf8(kWireGuardInterfacePath)).exists();
 }
 
 }
