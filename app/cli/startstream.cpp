@@ -155,7 +155,7 @@ public:
         // confirmation dialog
         case Event::AppQuitRequested:
             if (m_State == StateSeekApp) {
-                if (m_ComputerManager != nullptr) {
+                if (m_BeagleComputer == nullptr && m_ComputerManager != nullptr) {
                     m_ComputerManager->quitRunningApp(m_Computer);
                 }
                 else {

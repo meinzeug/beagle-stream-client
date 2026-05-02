@@ -10,6 +10,8 @@
 namespace Beagle {
 namespace {
 
+constexpr int kAllocateTimeoutMs = 15000;
+
 AllocateResult makeErrorResult(const QString& error)
 {
     AllocateResult result;
@@ -49,6 +51,7 @@ void BeagleBroker::allocate(const QString& poolId)
 
     QNetworkRequest request(url);
     request.setHeader(QNetworkRequest::ContentTypeHeader, "application/json");
+    request.setTransferTimeout(kAllocateTimeoutMs);
     request.setRawHeader("X-Beagle-Token", m_cfg.enrollment_token.toUtf8());
 
     QJsonObject payload{
