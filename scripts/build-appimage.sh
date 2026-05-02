@@ -69,6 +69,10 @@ APPIMAGE_PATH=$(find "$INSTALLER_FOLDER" -maxdepth 1 -type f -name '*.AppImage' 
 if [ -z "$APPIMAGE_PATH" ]; then
   fail "linuxdeployqt did not produce an AppImage"
 fi
-cp "$APPIMAGE_PATH" "$INSTALLER_FOLDER/BeagleStream-$VERSION-x86_64.AppImage" || fail "AppImage rename failed!"
+TARGET_APPIMAGE="$INSTALLER_FOLDER/BeagleStream-$VERSION-x86_64.AppImage"
+if [ "$APPIMAGE_PATH" != "$TARGET_APPIMAGE" ]; then
+  cp "$APPIMAGE_PATH" "$TARGET_APPIMAGE" || fail "AppImage rename failed!"
+fi
+chmod +x "$TARGET_APPIMAGE" || fail "AppImage chmod failed!"
 
 echo Build successful
