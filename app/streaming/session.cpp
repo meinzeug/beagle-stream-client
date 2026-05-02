@@ -1,4 +1,5 @@
 #include "session.h"
+#include "beagle/BeagleBootstrap.h"
 #include "settings/streamingpreferences.h"
 #include "streaming/streamutils.h"
 #include "backend/richpresencemanager.h"
@@ -563,6 +564,7 @@ Session::Session(NvComputer* computer, NvApp& app, StreamingPreferences *prefere
       m_QtWindow(nullptr),
       m_UnexpectedTermination(true), // Failure prior to streaming is unexpected
       m_BeagleVpnActivated(false),
+      m_BeagleAllocationPrepared(false),
       m_InputHandler(nullptr),
       m_MouseEmulationRefCount(0),
       m_FlushingWindowEventsRef(0),
@@ -574,6 +576,13 @@ Session::Session(NvComputer* computer, NvApp& app, StreamingPreferences *prefere
       m_AudioSampleCount(0),
       m_DropAudioEndTime(0)
 {
+}
+
+void Session::adoptBeagleAllocation(const Beagle::WgPeer& peer, bool vpnActivated)
+{
+    m_BeagleWgPeer = peer;
+    m_BeagleVpnActivated = vpnActivated;
+    m_BeagleAllocationPrepared = true;
 }
 
 Session::~Session()
@@ -1563,9 +1572,11 @@ public:
 // Called in a non-main thread
 bool Session::startConnectionAsync()
 {
-    if (!prepareBeagleAllocation()) {
-        cleanupBeagleAllocation();
-        return false;
+    if (!m_BeagleAllocationPrepared) {
+        if (!prepareBeagleAllocation()) {
+            cleanupBeagleAllocation();
+            return false;
+        }
     }
 
     // The UI should have ensured the old game was already quit
@@ -1707,63 +1718,18 @@ bool Session::startConnectionAsync()
 
 bool Session::prepareBeagleAllocation()
 {
-    const Beagle::EnrollmentConfig cfg = Beagle::loadEnrollmentConfig();
-    if (!cfg.valid || cfg.pool_id.isEmpty()) {
+    if (!Beagle::BeagleBootstrap::isEnabled()) {
         return true;
     }
 
     emit stageStarting(tr("Allocating BeagleStream session"));
-
-    Beagle::BeagleBroker broker;
-    QEventLoop loop;
-    Beagle::AllocateResult result;
-    QObject::connect(&broker, &Beagle::BeagleBroker::allocated, &loop, [&](Beagle::AllocateResult allocated) {
-        result = allocated;
-        loop.quit();
-    });
-    broker.allocate(cfg.pool_id);
-    loop.exec(QEventLoop::ExcludeUserInputEvents);
-
+    const Beagle::BootstrapResult result = Beagle::BeagleBootstrap::prepareComputer(*m_Computer);
     if (!result.success) {
-        emit displayLaunchError(tr("Beagle broker allocation failed: %1").arg(result.error));
+        emit displayLaunchError(result.error);
         return false;
     }
 
-    if (result.wg_peer.valid) {
-        m_BeagleWgPeer = result.wg_peer;
-        m_BeagleVpnActivated = Beagle::BeagleVPN::activatePeer(m_BeagleWgPeer);
-    }
-
-    m_Computer->activeAddress = NvAddress(result.host_ip, result.port);
-    m_Computer->activeHttpsPort = 0;
-
-    try {
-        NvHTTP http(m_Computer);
-        const QString serverInfo = http.getServerInfo(NvHTTP::NVLL_ERROR);
-        NvComputer updated(http, serverInfo);
-        m_Computer->update(updated);
-
-        if (m_Computer->pairState != NvComputer::PS_PAIRED) {
-            NvPairingManager pairingManager(m_Computer);
-            NvPairingManager::PairState pairState = pairingManager.pair(m_Computer->appVersion, result.token, m_Computer->serverCert);
-            if (pairState != NvPairingManager::PairState::PAIRED) {
-                emit displayLaunchError(tr("Beagle token pairing failed"));
-                return false;
-            }
-
-            NvHTTP pairedHttp(m_Computer);
-            const QString pairedServerInfo = pairedHttp.getServerInfo(NvHTTP::NVLL_ERROR);
-            NvComputer paired(pairedHttp, pairedServerInfo);
-            m_Computer->update(paired);
-        }
-    } catch (const GfeHttpResponseException& e) {
-        emit displayLaunchError(tr("Beagle stream host returned error: %1").arg(e.toQString()));
-        return false;
-    } catch (const QtNetworkReplyException& e) {
-        emit displayLaunchError(e.toQString());
-        return false;
-    }
-
+    adoptBeagleAllocation(result.wg_peer, result.vpn_activated);
     return true;
 }
 

@@ -4,6 +4,7 @@
 
 #include <QNetworkAccessManager>
 #include <QObject>
+#include <QMetaType>
 
 namespace Beagle {
 

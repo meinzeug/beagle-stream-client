@@ -1,4 +1,5 @@
 #include "commandlineparser.h"
+#include "beagle/BeagleBootstrap.h"
 #include "beagle/BeagleConfig.h"
 
 #include <QCommandLineParser>
@@ -519,12 +520,19 @@ void StreamCommandLineParser::parse(const QStringList &args, StreamingPreference
     if (posArgs.length() < 2) {
         parser.showError("Host not provided");
     }
-    m_Host = parser.positionalArguments().at(1);
+
+    if (Beagle::BeagleBootstrap::isEnabled() && posArgs.length() == 2) {
+        m_Host.clear();
+        m_AppName = posArgs.at(1);
+        return;
+    }
+
+    m_Host = posArgs.at(1);
 
     if (posArgs.length() < 3) {
         parser.showError("App not provided");
     }
-    m_AppName = parser.positionalArguments().at(2);
+    m_AppName = posArgs.at(2);
 }
 
 QString StreamCommandLineParser::getHost() const

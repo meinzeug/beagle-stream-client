@@ -101,6 +101,7 @@ class Session : public QObject
 public:
     explicit Session(NvComputer* computer, NvApp& app, StreamingPreferences *preferences = nullptr);
     virtual ~Session();
+    void adoptBeagleAllocation(const Beagle::WgPeer& peer, bool vpnActivated);
 
     Q_INVOKABLE bool initialize(QQuickWindow* qtWindow);
     Q_INVOKABLE void start();
@@ -265,6 +266,7 @@ private:
     bool m_UnexpectedTermination;
     Beagle::WgPeer m_BeagleWgPeer;
     bool m_BeagleVpnActivated;
+    bool m_BeagleAllocationPrepared;
     SdlInputHandler* m_InputHandler;
     int m_MouseEmulationRefCount;
     int m_FlushingWindowEventsRef;

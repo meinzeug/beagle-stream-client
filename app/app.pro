@@ -166,6 +166,7 @@ macx {
 }
 
 SOURCES += \
+    beagle/BeagleBootstrap.cpp \
     beagle/BeagleBroker.cpp \
     beagle/BeagleConfig.cpp \
     beagle/BeagleVPN.cpp \
@@ -211,6 +212,7 @@ SOURCES += \
 
 HEADERS += \
     SDL_compat.h \
+    beagle/BeagleBootstrap.h \
     beagle/BeagleBroker.h \
     beagle/BeagleConfig.h \
     beagle/BeagleVPN.h \

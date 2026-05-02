@@ -1,10 +1,13 @@
 #include "startstream.h"
+#include "beagle/BeagleBootstrap.h"
 #include "backend/computermanager.h"
+#include "backend/nvhttp.h"
 #include "backend/computerseeker.h"
 #include "streaming/session.h"
 
 #include <QCoreApplication>
 #include <QTimer>
+#include <memory>
 
 #define COMPUTER_SEEK_TIMEOUT 30000
 #define APP_SEEK_TIMEOUT 10000
@@ -48,6 +51,16 @@ class LauncherPrivate
 public:
     LauncherPrivate(Launcher *q) : q_ptr(q) {}
 
+    void createBeagleSession()
+    {
+        Q_Q(Launcher);
+        Session* session = new Session(m_Computer, m_SelectedApp, m_Preferences);
+        session->adoptBeagleAllocation(m_BeagleBootstrap.wg_peer, m_BeagleBootstrap.vpn_activated);
+        m_BeagleAllocationTransferred = true;
+        m_State = StateStartSession;
+        emit q->sessionCreated(m_SelectedApp.name, session);
+    }
+
     void handleEvent(Event event)
     {
         Q_Q(Launcher);
@@ -58,22 +71,50 @@ public:
         // Occurs when CliStartStreamSegue becomes visible and the UI calls launcher's execute()
         case Event::Executed:
             if (m_State == StateInit) {
-                m_State = StateSeekComputer;
-                m_ComputerManager = event.computerManager;
+                if (m_ComputerName.isEmpty() && Beagle::BeagleBootstrap::isEnabled()) {
+                    m_State = StateSeekApp;
+                    m_ComputerManager = event.computerManager;
+                    m_BeagleComputer = std::make_unique<NvComputer>();
 
-                m_ComputerSeeker = new ComputerSeeker(m_ComputerManager, m_ComputerName, q);
-                q->connect(m_ComputerSeeker, &ComputerSeeker::computerFound,
-                           q, &Launcher::onComputerFound);
-                q->connect(m_ComputerSeeker, &ComputerSeeker::errorTimeout,
-                           q, &Launcher::onTimeout);
-                m_ComputerSeeker->start(COMPUTER_SEEK_TIMEOUT);
+                    emit q->searchingComputer();
+                    emit q->searchingApp();
 
-                q->connect(m_ComputerManager, &ComputerManager::computerStateChanged,
-                           q, &Launcher::onComputerUpdated);
-                q->connect(m_ComputerManager, &ComputerManager::quitAppCompleted,
-                           q, &Launcher::onQuitAppCompleted);
+                    m_BeagleBootstrap = Beagle::BeagleBootstrap::prepareComputer(*m_BeagleComputer, m_AppName);
+                    if (!m_BeagleBootstrap.success) {
+                        m_State = StateFailure;
+                        emit q->failed(m_BeagleBootstrap.error);
+                        break;
+                    }
 
-                emit q->searchingComputer();
+                    m_Computer = m_BeagleComputer.get();
+                    app = m_BeagleBootstrap.app;
+                    m_SelectedApp = app;
+
+                    if (isNotStreaming() || isStreamingApp(app)) {
+                        createBeagleSession();
+                    }
+                    else {
+                        emit q->appQuitRequired(getCurrentAppName());
+                    }
+                }
+                else {
+                    m_State = StateSeekComputer;
+                    m_ComputerManager = event.computerManager;
+
+                    m_ComputerSeeker = new ComputerSeeker(m_ComputerManager, m_ComputerName, q);
+                    q->connect(m_ComputerSeeker, &ComputerSeeker::computerFound,
+                               q, &Launcher::onComputerFound);
+                    q->connect(m_ComputerSeeker, &ComputerSeeker::errorTimeout,
+                               q, &Launcher::onTimeout);
+                    m_ComputerSeeker->start(COMPUTER_SEEK_TIMEOUT);
+
+                    q->connect(m_ComputerManager, &ComputerManager::computerStateChanged,
+                               q, &Launcher::onComputerUpdated);
+                    q->connect(m_ComputerManager, &ComputerManager::quitAppCompleted,
+                               q, &Launcher::onQuitAppCompleted);
+
+                    emit q->searchingComputer();
+                }
             }
             break;
         // Occurs when searched computer is found
@@ -114,16 +155,35 @@ public:
         // confirmation dialog
         case Event::AppQuitRequested:
             if (m_State == StateSeekApp) {
-                m_ComputerManager->quitRunningApp(m_Computer);
+                if (m_ComputerManager != nullptr) {
+                    m_ComputerManager->quitRunningApp(m_Computer);
+                }
+                else {
+                    Event quitEvent(Event::AppQuitCompleted);
+                    try {
+                        NvHTTP http(m_Computer);
+                        http.quitApp();
+                    } catch (const GfeHttpResponseException& e) {
+                        quitEvent.errorMessage = e.toQString();
+                    } catch (const QtNetworkReplyException& e) {
+                        quitEvent.errorMessage = e.toQString();
+                    }
+                    handleEvent(quitEvent);
+                }
             }
             break;
         // Occurs when the previous app quit has been completed, handles quitting errors if any
         // happened. ComputerUpdated event's handler handles session start when previous app has
         // quit.
         case Event::AppQuitCompleted:
-            if (m_State == StateSeekApp && !event.errorMessage.isEmpty()) {
-                m_State = StateFailure;
-                emit q->failed(QObject::tr("Quitting app failed, reason: %1").arg(event.errorMessage));
+            if (m_State == StateSeekApp) {
+                if (!event.errorMessage.isEmpty()) {
+                    m_State = StateFailure;
+                    emit q->failed(QObject::tr("Quitting app failed, reason: %1").arg(event.errorMessage));
+                }
+                else if (m_BeagleComputer != nullptr) {
+                    createBeagleSession();
+                }
             }
             break;
         // Occurs when computer or app search timed out
@@ -177,6 +237,10 @@ public:
     ComputerManager *m_ComputerManager;
     ComputerSeeker *m_ComputerSeeker;
     NvComputer *m_Computer;
+    std::unique_ptr<NvComputer> m_BeagleComputer;
+    Beagle::BootstrapResult m_BeagleBootstrap;
+    NvApp m_SelectedApp;
+    bool m_BeagleAllocationTransferred = false;
     State m_State;
     QTimer *m_TimeoutTimer;
 };
@@ -199,6 +263,10 @@ Launcher::Launcher(QString computer, QString app,
 
 Launcher::~Launcher()
 {
+    Q_D(Launcher);
+    if (!d->m_BeagleAllocationTransferred) {
+        Beagle::BeagleBootstrap::cleanup(d->m_BeagleBootstrap);
+    }
 }
 
 void Launcher::execute(ComputerManager *manager)
