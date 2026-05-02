@@ -64,4 +64,11 @@ VERSION=$VERSION $LINUXDEPLOY --appdir $DEPLOY_FOLDER \
   --plugin qt --output appimage || fail "linuxdeploy failed!"
 popd
 
+echo Normalizing BeagleStream AppImage name
+APPIMAGE_PATH=$(find "$INSTALLER_FOLDER" -maxdepth 1 -type f -name '*.AppImage' | head -n 1)
+if [ -z "$APPIMAGE_PATH" ]; then
+  fail "linuxdeployqt did not produce an AppImage"
+fi
+cp "$APPIMAGE_PATH" "$INSTALLER_FOLDER/BeagleStream-$VERSION-x86_64.AppImage" || fail "AppImage rename failed!"
+
 echo Build successful

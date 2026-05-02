@@ -38,3 +38,20 @@ make -j"$(nproc)"
 
 Runtime enrollment is read from `/etc/beagle/enrollment.conf`. The enrollment
 token is sent only as the `X-Beagle-Token` HTTP header and must not be committed.
+
+## Release AppImage
+
+The `BeagleStream Client Release` workflow runs on `beagle/phase-a` pushes and
+publishes a mutable prerelease named `beagle-phase-a`.
+
+Stable Thin-Client build URL:
+
+```text
+https://github.com/meinzeug/beagle-stream-client/releases/download/beagle-phase-a/BeagleStream-latest-x86_64.AppImage
+```
+
+Use it in Beagle OS artifact builds via:
+
+```bash
+PVE_THIN_CLIENT_BEAGLE_STREAM_CLIENT_URL="https://github.com/meinzeug/beagle-stream-client/releases/download/beagle-phase-a/BeagleStream-latest-x86_64.AppImage"
+```

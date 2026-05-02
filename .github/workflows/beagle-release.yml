@@ -1,0 +1,70 @@
+---
+name: BeagleStream Client Release
+
+on:
+  push:
+    branches:
+      - beagle/phase-a
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: beagle-stream-client-release-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  version:
+    runs-on: ubuntu-latest
+    outputs:
+      ci_version: ${{ steps.version.outputs.ci_version }}
+    steps:
+      - name: Resolve CI version
+        id: version
+        run: |
+          short_sha="$(printf '%s' "${GITHUB_SHA}" | cut -c1-7)"
+          echo "ci_version=beagle-${short_sha}" >> "${GITHUB_OUTPUT}"
+
+  build-appimage:
+    needs: version
+    uses: ./.github/workflows/build-appimage.yml
+    with:
+      ci_version: ${{ needs.version.outputs.ci_version }}
+
+  publish:
+    needs:
+      - version
+      - build-appimage
+    runs-on: ubuntu-latest
+    steps:
+      - name: Download AppImage artifact
+        uses: actions/download-artifact@v5
+        with:
+          name: BeagleStream-LinuxAppImage-${{ needs.version.outputs.ci_version }}
+          path: dist/
+
+      - name: Prepare release assets
+        run: |
+          version="${{ needs.version.outputs.ci_version }}"
+          test -f "dist/BeagleStream-${version}-x86_64.AppImage"
+          cp "dist/BeagleStream-${version}-x86_64.AppImage" "dist/BeagleStream-latest-x86_64.AppImage"
+          sha256sum dist/BeagleStream-*.AppImage > dist/SHA256SUMS
+          cat dist/SHA256SUMS
+
+      - name: Publish mutable Beagle phase release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          tag="beagle-phase-a"
+          title="BeagleStream Client Phase A"
+          notes="Mutable BeagleStream Phase A AppImage build from ${GITHUB_SHA}."
+          if gh release view "$tag" >/dev/null 2>&1; then
+            gh release upload "$tag" --clobber dist/BeagleStream-*.AppImage dist/SHA256SUMS
+            gh release edit "$tag" --title "$title" --notes "$notes" --prerelease
+          else
+            gh release create "$tag" dist/BeagleStream-*.AppImage dist/SHA256SUMS \
+              --title "$title" \
+              --notes "$notes" \
+              --prerelease
+          fi
