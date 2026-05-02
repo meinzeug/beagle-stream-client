@@ -51,7 +51,9 @@ void BeagleBroker::allocate(const QString& poolId)
 
     QNetworkRequest request(url);
     request.setHeader(QNetworkRequest::ContentTypeHeader, "application/json");
+#if QT_VERSION >= QT_VERSION_CHECK(6, 5, 0)
     request.setTransferTimeout(kAllocateTimeoutMs);
+#endif
     request.setRawHeader("X-Beagle-Token", m_cfg.enrollment_token.toUtf8());
 
     QJsonObject payload{

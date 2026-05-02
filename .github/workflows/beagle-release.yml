@@ -38,6 +38,9 @@ jobs:
       - build-appimage
     runs-on: ubuntu-latest
     steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v5
+
       - name: Download AppImage artifact
         uses: actions/download-artifact@v5
         with:
