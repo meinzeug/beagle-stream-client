@@ -170,9 +170,6 @@ SOURCES += \
     beagle/BeagleConfig.cpp \
     beagle/BeagleVPN.cpp \
     backend/nvaddress.cpp \
-    beagle/BeagleBroker.cpp \
-    beagle/BeagleConfig.cpp \
-    beagle/BeagleVPN.cpp \
     backend/nvapp.cpp \
     cli/pair.cpp \
     main.cpp \
@@ -218,9 +215,6 @@ HEADERS += \
     beagle/BeagleConfig.h \
     beagle/BeagleVPN.h \
     backend/nvaddress.h \
-    beagle/BeagleBroker.h \
-    beagle/BeagleConfig.h \
-    beagle/BeagleVPN.h \
     backend/nvapp.h \
     cli/pair.h \
     settings/compatfetcher.h \
