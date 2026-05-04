@@ -7,6 +7,7 @@
 
 #include <QEventLoop>
 #include <QObject>
+#include <QSettings>
 
 namespace Beagle {
 namespace {
@@ -20,6 +21,43 @@ NvApp findAppByName(const QVector<NvApp>& appList, const QString& appName)
     }
 
     return NvApp();
+}
+
+void seedComputerFromPersistedHostConfig(NvComputer& computer)
+{
+    if (!computer.uuid.isEmpty() && !computer.serverCert.isNull()) {
+        return;
+    }
+
+    QSettings settings;
+    const int hosts = settings.beginReadArray("hosts");
+    for (int i = 0; i < hosts; ++i) {
+        settings.setArrayIndex(i);
+        NvComputer persisted(settings);
+        if (persisted.uuid.isEmpty() || persisted.serverCert.isNull()) {
+            continue;
+        }
+
+        if (computer.name.isEmpty()) {
+            computer.name = persisted.name;
+        }
+        computer.uuid = persisted.uuid;
+        computer.serverCert = persisted.serverCert;
+        if (computer.manualAddress.isNull()) {
+            computer.manualAddress = persisted.manualAddress;
+        }
+        if (computer.activeAddress.isNull()) {
+            computer.activeAddress = persisted.activeAddress;
+        }
+        if (computer.remoteAddress.isNull()) {
+            computer.remoteAddress = persisted.remoteAddress;
+        }
+        if (computer.localAddress.isNull()) {
+            computer.localAddress = persisted.localAddress;
+        }
+        break;
+    }
+    settings.endArray();
 }
 
 }
@@ -54,6 +92,7 @@ BootstrapResult BeagleBootstrap::prepareComputer(NvComputer& computer, const QSt
         return bootstrap;
     }
 
+    seedComputerFromPersistedHostConfig(computer);
     bootstrap.wg_peer = result.wg_peer;
     if (bootstrap.wg_peer.valid) {
         bootstrap.vpn_activated = BeagleVPN::activatePeer(bootstrap.wg_peer);
