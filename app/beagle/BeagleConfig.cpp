@@ -1,6 +1,7 @@
 #include "BeagleConfig.h"
 
 #include <QFile>
+#include <QProcessEnvironment>
 #include <QTextStream>
 
 namespace Beagle {
@@ -24,6 +25,11 @@ QString stripQuotes(QString value)
 EnrollmentConfig loadEnrollmentConfig()
 {
     EnrollmentConfig cfg;
+    const QProcessEnvironment env = QProcessEnvironment::systemEnvironment();
+    if (env.value(QStringLiteral("BEAGLE_STREAM_CLIENT_DISABLE_INTERNAL_BROKER")).trimmed() == QStringLiteral("1")) {
+        return cfg;
+    }
+
     QFile file(QString::fromUtf8(kEnrollmentConfigPath));
     if (!file.open(QIODevice::ReadOnly | QIODevice::Text)) {
         return cfg;

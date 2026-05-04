@@ -4,6 +4,7 @@
 
 #include <QDebug>
 #include <QDir>
+#include <QProcessEnvironment>
 #include <QProcess>
 
 namespace Beagle {
@@ -30,6 +31,11 @@ bool runWireGuardCommand(const QStringList& arguments)
 bool BeagleVPN::activatePeer(const WgPeer& peer)
 {
     if (!peer.valid) {
+        return true;
+    }
+
+    if (QProcessEnvironment::systemEnvironment().value(QStringLiteral("BEAGLE_STREAM_CLIENT_OS_MANAGED_VPN")).trimmed() == QStringLiteral("1") && isActive()) {
+        qInfo() << "Beagle VPN is already managed by the operating system runtime.";
         return true;
     }
 
