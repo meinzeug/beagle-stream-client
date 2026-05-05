@@ -88,7 +88,9 @@ void SdlInputHandler::performSpecialKeyCombo(KeyCombo combo)
 
     case KeyComboToggleMinimize:
         SDL_LogInfo(SDL_LOG_CATEGORY_APPLICATION,
-                    "Detected minimize combo");
+                    "Detected Beagle local desktop escape combo");
+        setCaptureActive(false);
+        raiseAllKeys();
         SDL_MinimizeWindow(m_Window);
         break;
 
