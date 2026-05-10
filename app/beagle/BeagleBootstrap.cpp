@@ -8,6 +8,7 @@
 #include <QEventLoop>
 #include <QObject>
 #include <QSettings>
+#include <QThread>
 
 namespace Beagle {
 namespace {
@@ -115,8 +116,21 @@ BootstrapResult BeagleBootstrap::prepareComputer(NvComputer& computer, const QSt
 
         if (computer.pairState != NvComputer::PS_PAIRED) {
             NvPairingManager pairingManager(&computer);
-            const NvPairingManager::PairState pairState =
-                pairingManager.pair(computer.appVersion, result.token, computer.serverCert);
+            NvPairingManager::PairState pairState = NvPairingManager::PairState::FAILED;
+            constexpr int kPairAttempts = 5;
+            for (int attempt = 1; attempt <= kPairAttempts; ++attempt) {
+                pairState = pairingManager.pair(computer.appVersion, result.token, computer.serverCert);
+                if (pairState == NvPairingManager::PairState::PAIRED) {
+                    break;
+                }
+                if (pairState == NvPairingManager::PairState::PIN_WRONG) {
+                    break;
+                }
+                if (attempt < kPairAttempts) {
+                    QThread::msleep(700);
+                }
+            }
+
             if (pairState != NvPairingManager::PairState::PAIRED) {
                 bootstrap.error = QObject::tr("Beagle token pairing failed.");
                 cleanup(bootstrap);
