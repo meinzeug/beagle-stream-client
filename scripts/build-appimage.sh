@@ -63,6 +63,8 @@ pushd $INSTALLER_FOLDER
 # self-contained and does not depend on the host libavcodec version.
 VERSION=$VERSION $LINUXDEPLOY --appdir $DEPLOY_FOLDER \
   --library=/usr/local/lib/libSDL3.so.0 \
+  --library=/usr/local/lib/libSDL2-2.0.so.0 \
+  --library=/usr/local/lib/libSDL2_ttf-2.0.so.0 \
   --library=/usr/local/lib/libavcodec.so \
   --library=/usr/local/lib/libavformat.so \
   --library=/usr/local/lib/libswscale.so \
