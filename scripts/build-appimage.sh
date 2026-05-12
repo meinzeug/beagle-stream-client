@@ -59,8 +59,14 @@ export QMAKE=qmake6
 
 echo Creating AppImage
 pushd $INSTALLER_FOLDER
+# Explicitly bundle FFmpeg libraries built from source so the AppImage is
+# self-contained and does not depend on the host libavcodec version.
 VERSION=$VERSION $LINUXDEPLOY --appdir $DEPLOY_FOLDER \
   --library=/usr/local/lib/libSDL3.so.0 \
+  --library=/usr/local/lib/libavcodec.so \
+  --library=/usr/local/lib/libavformat.so \
+  --library=/usr/local/lib/libswscale.so \
+  --library=/usr/local/lib/libavutil.so \
   --plugin qt --output appimage || fail "linuxdeploy failed!"
 popd
 
