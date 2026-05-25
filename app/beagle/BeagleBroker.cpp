@@ -62,11 +62,26 @@ void BeagleBroker::allocate(const QString& poolId)
         {"user_id", QString()}
     };
 
+
     QNetworkReply* reply = m_nam.post(request, QJsonDocument(payload).toJson(QJsonDocument::Compact));
-    connect(reply, &QNetworkReply::sslErrors, this, [reply](const QList<QSslError>& errors) {
-        Q_UNUSED(errors);
-        reply->ignoreSslErrors();
-    });
+    // TLS-Fehler nur ignorieren, wenn explizit per Umgebungsvariable erlaubt
+    bool tls_insecure = qEnvironmentVariableIsSet("BEAGLE_STREAM_CLIENT_TLS_INSECURE") &&
+                       qgetenv("BEAGLE_STREAM_CLIENT_TLS_INSECURE") == "1";
+    if (tls_insecure) {
+        connect(reply, &QNetworkReply::sslErrors, this, [reply](const QList<QSslError>& errors) {
+            Q_UNUSED(errors);
+            reply->ignoreSslErrors();
+        });
+    } else {
+        connect(reply, &QNetworkReply::sslErrors, this, [this, reply](const QList<QSslError>& errors) {
+            QStringList errorStrings;
+            for (const auto& err : errors) {
+                errorStrings << err.errorString();
+            }
+            emit allocated(makeErrorResult(tr("TLS handshake failed: %1").arg(errorStrings.join(", "))));
+            reply->abort();
+        });
+    }
 
     connect(reply, &QNetworkReply::finished, this, [this, reply]() {
         reply->deleteLater();
