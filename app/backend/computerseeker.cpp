@@ -1,4 +1,5 @@
 #include "computerseeker.h"
+#include "beagle/BeagleConfig.h"
 #include "computermanager.h"
 #include <QTimer>
 
@@ -10,6 +11,10 @@ ComputerSeeker::ComputerSeeker(ComputerManager *manager, QString computerName, Q
     const auto computers = m_ComputerManager->getComputers();
     for (NvComputer* computer : computers) {
         if (this->matchComputer(computer)) {
+            if (Beagle::isManagedMode()) {
+                qInfo() << "Skipping Wake-on-LAN in Beagle-managed broker mode for" << computer->name;
+                continue;
+            }
             computer->wake();
         }
     }

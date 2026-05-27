@@ -45,6 +45,9 @@
 #include <QGuiApplication>
 #include <QCursor>
 #include <QScreen>
+#include <QJsonObject>
+
+#include <cstdio>
 
 #if QT_VERSION >= QT_VERSION_CHECK(6, 0, 0)
 #include <QQuickOpenGLUtils>
@@ -76,11 +79,16 @@ void Session::clStageStarting(int stage)
     // We know this is called on the same thread as LiStartConnection()
     // which happens to be the main thread, so it's cool to interact
     // with the GUI in these callbacks.
-    emit s_ActiveSession->stageStarting(QString::fromLocal8Bit(LiGetStageName(stage)));
+    const QString stageName = QString::fromLocal8Bit(LiGetStageName(stage));
+    Beagle::logStreamEvent(QStringLiteral("stage_starting"), QJsonObject{{QStringLiteral("stage"), stageName}});
+    emit s_ActiveSession->stageStarting(stageName);
 }
 
 void Session::clStageFailed(int stage, int errorCode)
 {
+    const QString stageName = QString::fromLocal8Bit(LiGetStageName(stage));
+    Beagle::logStreamEvent(QStringLiteral("stage_failed"), QJsonObject{{QStringLiteral("stage"), stageName}, {QStringLiteral("error_code"), errorCode}});
+
     // Perform the port test now, while we're on the async connection thread and not blocking the UI.
     unsigned int portFlags = LiGetPortFlagsFromStage(stage);
     s_ActiveSession->m_PortTestResults = LiTestClientConnectivity(CONN_TEST_SERVER, 443, portFlags);
@@ -92,6 +100,8 @@ void Session::clStageFailed(int stage, int errorCode)
 
 void Session::clConnectionTerminated(int errorCode)
 {
+    Beagle::logStreamEvent(QStringLiteral("connection_terminated"), QJsonObject{{QStringLiteral("error_code"), errorCode}});
+
     unsigned int portFlags = LiGetPortFlagsFromTerminationErrorCode(errorCode);
     s_ActiveSession->m_PortTestResults = LiTestClientConnectivity(CONN_TEST_SERVER, 443, portFlags);
 
@@ -152,8 +162,25 @@ void Session::clConnectionTerminated(int errorCode)
 void Session::clLogMessage(const char* format, ...)
 {
     va_list ap;
+    va_list copy;
 
     va_start(ap, format);
+    va_copy(copy, ap);
+    char formatted[512];
+    vsnprintf(formatted, sizeof(formatted), format, copy);
+    va_end(copy);
+
+    QString message = QString::fromLocal8Bit(formatted).trimmed();
+    if (message.startsWith(QStringLiteral("Received first video packet after"))) {
+        Beagle::logStreamEvent(QStringLiteral("first_video_packet"), QJsonObject{{QStringLiteral("message"), message}});
+    }
+    else if (message.startsWith(QStringLiteral("Received first audio packet after"))) {
+        Beagle::logStreamEvent(QStringLiteral("first_audio_packet"), QJsonObject{{QStringLiteral("message"), message}});
+    }
+    else if (message.startsWith(QStringLiteral("Starting RTSP handshake"))) {
+        Beagle::logStreamEvent(QStringLiteral("rtsp_handshake_starting"));
+    }
+
     SDL_LogMessageV(SDL_LOG_CATEGORY_APPLICATION,
                     SDL_LOG_PRIORITY_INFO,
                     format,

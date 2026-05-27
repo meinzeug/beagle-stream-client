@@ -1,5 +1,6 @@
 #pragma once
 
+#include <QJsonObject>
 #include <QString>
 
 namespace Beagle {
@@ -13,5 +14,7 @@ struct EnrollmentConfig {
 };
 
 EnrollmentConfig loadEnrollmentConfig();
+bool isManagedMode();
+void logStreamEvent(const QString& event, QJsonObject fields = QJsonObject());
 
 }

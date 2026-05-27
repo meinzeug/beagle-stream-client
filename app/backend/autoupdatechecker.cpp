@@ -1,4 +1,5 @@
 #include "autoupdatechecker.h"
+#include "beagle/BeagleConfig.h"
 
 #include <QNetworkReply>
 #include <QJsonDocument>
@@ -20,7 +21,7 @@ AutoUpdateChecker::AutoUpdateChecker(QObject *parent) :
             this, &AutoUpdateChecker::handleUpdateCheckRequestFinished);
 
     QString currentVersion(VERSION_STR);
-    qDebug() << "Current Moonlight version:" << currentVersion;
+    qDebug() << (Beagle::isManagedMode() ? "Current BeagleStream version:" : "Current Moonlight version:") << currentVersion;
     parseStringToVersionQuad(currentVersion, m_CurrentVersionQuad);
 
     // Should at least have a 1.0-style version number
@@ -29,6 +30,11 @@ AutoUpdateChecker::AutoUpdateChecker(QObject *parent) :
 
 void AutoUpdateChecker::start()
 {
+    if (Beagle::isManagedMode()) {
+        qDebug() << "Skipping upstream update manifest check in Beagle-managed mode";
+        return;
+    }
+
     if (!m_Nam) {
         Q_ASSERT(m_Nam);
         return;
