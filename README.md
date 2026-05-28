@@ -1,14 +1,19 @@
-# Moonlight PC
+# Beagle Stream Client
 
-[Moonlight PC](https://moonlight-stream.org) is an open source PC client for NVIDIA GameStream and [Sunshine](https://github.com/LizardByte/Sunshine).
+[Beagle Stream Client](https://github.com/meinzeug/beagle-stream-client) is the Beagle-managed PC streaming client fork for Beagle Stream Server and compatible Moonlight/Sunshine protocol endpoints.
 
 Moonlight also has mobile versions for [Android](https://github.com/moonlight-stream/moonlight-android) and [iOS](https://github.com/moonlight-stream/moonlight-ios).
 
 You can follow development on our [Discord server](https://moonlight-stream.org/discord) and help translate Moonlight into your language on [Weblate](https://hosted.weblate.org/projects/moonlight/moonlight-qt/).
 
- [![Build](https://img.shields.io/github/actions/workflow/status/moonlight-stream/moonlight-qt/build.yml?branch=master)](https://github.com/moonlight-stream/moonlight-qt/actions/workflows/build.yml?query=branch%3Amaster)
- [![Downloads](https://img.shields.io/github/downloads/moonlight-stream/moonlight-qt/total)](https://github.com/moonlight-stream/moonlight-qt/releases)
+ [![Build](https://img.shields.io/github/actions/workflow/status/meinzeug/beagle-stream-client/beagle-release.yml?branch=beagle/phase-a)](https://github.com/meinzeug/beagle-stream-client/actions/workflows/beagle-release.yml)
+ [![Downloads](https://img.shields.io/github/downloads/meinzeug/beagle-stream-client/total)](https://github.com/meinzeug/beagle-stream-client/releases)
  [![Translation Status](https://hosted.weblate.org/widgets/moonlight/-/moonlight-qt/svg-badge.svg)](https://hosted.weblate.org/projects/moonlight/moonlight-qt/)
+
+## Fork Focus
+- Primary runtime target: Beagle OS thin clients and Beagle-managed brokered sessions
+- Primary host target: Beagle Stream Server fork in this organization
+- Published release channel for Beagle OS automation: tag beagle-phase-a with mutable asset BeagleStream-latest-x86_64.AppImage
 
 ## Features
  - Hardware accelerated video decoding on Windows, Mac, and Linux
@@ -22,10 +27,10 @@ You can follow development on our [Discord server](https://moonlight-stream.org/
  - Support for passing system-wide keyboard shortcuts like Alt+Tab to the host
  
 ## Downloads
-- [Windows, macOS, and Steam Link](https://github.com/moonlight-stream/moonlight-qt/releases)
+- [Beagle Stream Client Releases](https://github.com/meinzeug/beagle-stream-client/releases)
 - [Snap (for Ubuntu-based Linux distros)](https://snapcraft.io/moonlight)
 - [Flatpak (for other Linux distros)](https://flathub.org/apps/details/com.moonlight_stream.Moonlight)
-- [AppImage](https://github.com/moonlight-stream/moonlight-qt/releases)
+- [AppImage](https://github.com/meinzeug/beagle-stream-client/releases)
 - [Raspberry Pi 4 and 5](https://github.com/moonlight-stream/moonlight-docs/wiki/Installing-Moonlight-Qt-on-Raspberry-Pi-4)
 - [Generic ARM 32-bit and 64-bit Debian packages](https://github.com/moonlight-stream/moonlight-docs/wiki/Installing-Moonlight-Qt-on-ARM%E2%80%90based-Single-Board-Computers) (not for Raspberry Pi)
 - [Experimental RISC-V Debian packages](https://github.com/moonlight-stream/moonlight-docs/wiki/Installing-Moonlight-Qt-on-RISC%E2%80%90V-Single-Board-Computers)
