@@ -13,33 +13,26 @@ concurrency:
   group: beagle-stream-client-release-${{ github.ref }}
   cancel-in-progress: true
 
+env:
+  BEAGLE_RELEASE_VERSION: "0.1.0"
+
 jobs:
   version:
     runs-on: ubuntu-latest
     outputs:
-      base_version: ${{ steps.version.outputs.base_version }}
       ci_version: ${{ steps.version.outputs.ci_version }}
       release_tag: ${{ steps.version.outputs.release_tag }}
       release_title: ${{ steps.version.outputs.release_title }}
     steps:
-      - name: Checkout Repository
-        uses: actions/checkout@v5
-
       - name: Resolve release version
         id: version
         run: |
-          base_version="$(tr -d "[:space:]" < app/version.txt)"
-          if [[ -z "${base_version}" ]]; then
-            echo "app/version.txt must contain a version" >&2
-            exit 1
-          fi
           short_sha="$(printf '%s' "${GITHUB_SHA}" | cut -c1-7)"
-          ci_version="${base_version}-${short_sha}"
-          release_tag="beagle-v${base_version}-${short_sha}"
-          echo "base_version=${base_version}" >> "${GITHUB_OUTPUT}"
+          ci_version="${BEAGLE_RELEASE_VERSION}-${short_sha}"
+          release_tag="beagle-v${BEAGLE_RELEASE_VERSION}-${short_sha}"
           echo "ci_version=${ci_version}" >> "${GITHUB_OUTPUT}"
           echo "release_tag=${release_tag}" >> "${GITHUB_OUTPUT}"
-          echo "release_title=BeagleStream Client ${base_version} (${short_sha})" >> "${GITHUB_OUTPUT}"
+          echo "release_title=BeagleStream Client ${BEAGLE_RELEASE_VERSION} (${short_sha})" >> "${GITHUB_OUTPUT}"
 
   build-appimage:
     needs: version
