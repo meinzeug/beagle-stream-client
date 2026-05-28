@@ -9,18 +9,24 @@ Item {
     }
 
     function onPairing(pcName, pin) {
-        stageLabel.text = qsTr("Pairing... Please enter '%1' on %2.").arg(pin).arg(pcName)
+        if (pin.length === 4) {
+            stageLabel.text = qsTr("Pairing... Please enter '%1' on %2.").arg(pin).arg(pcName)
+        }
+        else {
+            stageLabel.text = qsTr("Pairing with %1...").arg(pcName)
+        }
     }
 
     function onFailed(message) {
         stageIndicator.visible = false
         errorDialog.text = message
         errorDialog.open()
+        Qt.exit(1)
     }
 
     function onSuccess(appName) {
         stageIndicator.visible = false
-        pairCompleteDialog.open()
+        Qt.exit(0)
     }
 
     // Allow user to back out of pairing
